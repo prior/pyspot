@@ -51,7 +51,7 @@ class pyspot_UnitTests(unittest.TestCase):
     post_guid = new_post.get('body').get('guid')
     print 'RESULT: Posted blog post %s\n' % post_guid
     
-  def test_keywords(self):
+  def xtest_keywords(self):
     kw_client = HubSpotKeywordClient(API_KEY, PORTAL_ID)
     
     # get all keywords
