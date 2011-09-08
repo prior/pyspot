@@ -1,68 +1,67 @@
 class Blog():
   """define the HubSpot blog object that we'll pass back to the user"""
-  def __init__(self, blog_json):
-    self.xml_parse(blog_json)
+  def __init__(self, blog_data):
+    self.data_parse(blog_data)
   
-  def xml_parse(self, blog_json):
-    self.guid = blog_json['guid']
-    self.feed_url = blog_json['feedUrl']
-    self.blog_title = blog_json['blogTitle']
-    self.portal_id = blog_json['portalId']
-    self.web_url = blog_json['webUrl']
+  def data_parse(self, blog_data):
+    self.guid = blog_data['guid']
+    self.feed_url = blog_data['feedUrl']
+    self.blog_title = blog_data['blogTitle']
+    self.portal_id = blog_data['portalId']
+    self.web_url = blog_data['webUrl']
   
 
 class BlogComment():
-  """defines the HubSpot Blog comment object"""
+  # Defines the BlogComment class and handles them when only passed a comment Entry.
+  def __init__(self, comment_data):
+    self.data_parse(comment_data)
   
-  def __init__(self, comment_xml):
-    self.xml_parse(comment_xml)
-  
-  def xml_parse(self, xml):
-    # Creating Nodes
-    feedNode = xml.firstChild  # Feed node that wraps the whole XML.
-    commentEntryNode = feedNode.childNodes[3]
-    commentIdNode = commentEntryNode.childNodes[0]
-    commentAuthorNode = commentEntryNode.childNodes[1]
-    authorNameNode = commentAuthorNode.childNodes[0]
-    authorEmailNode = commentAuthorNode.childNodes[1]
-    authorUriNode = commentAuthorNode.childNodes[2]
-    contentNode = commentEntryNode.childNodes[2]
-    publishedNode = commentEntryNode.childNodes[3]
-    userTokenNode = commentEntryNode.childNodes[6]
-    judgeScoredNode = commentEntryNode.childNodes[7]
-    if userTokenNode.firstChild:
-      user_token = userTokenNode.childNodes[0].data
-      self.set_user_token(user_token)
-    else:
-      pass
-      
-    if judgeScoredNode.firstChild:
-      judge_scored_time = judgeScoredNode.childNodes[0].data
-      self.set_judge_scored_time(judge_scored_time)
-    else:
-      pass
-      
-    isSpamNode = commentEntryNode.childNodes[8]
-    
-    # Drilling down to text and setting class variables
-    self.comment_guid = commentIdNode.childNodes[0].data
-    self.comment_author_name = authorNameNode.childNodes[0].data
-    self.comment_author_email = authorEmailNode.childNodes[0].data
-    self.comment_author_uri = authorUriNode.childNodes[0].data
-    self.comment_content = contentNode.childNodes[0].data
-    self.published_time = publishedNode.childNodes[0].data
-    self.is_comment_spam = isSpamNode.childNodes[0].data
+  def data_parse(self, comment_data):
+    self.comment_guid = comment_data['guid']
+    self.comment_author_name = comment_data['anonyName']
+    self.comment_author_email = comment_data['anonyEmail']
+    self.comment_content = comment_data['comment']
+    self.published_time = comment_data['approvedTimestamp']
+    self.is_comment_spam = comment_data['judgeIsSpam']
+    self.blog_post_url = comment_data['postUrl']
+    self.user_email = comment_data['userEmail']
+    self.user_token = comment_data['userToken']
   
 
-class BlogPost():
-  """define the HubSpot Blog Post object that will get hydrated and passed back to the user"""
+class BlogPosts():
+  # Blog post class to handle blog post objects.
+  def __init__(self, blog_post):
+    self.data_parse(blog_post)
+  
+  def data_parse(self, blog_data):
+    self.post_author_name = blog_data['authorDisplayName']
+    self.post_author_email = blog_data['authorEmail']
+    self.post_guid = blog_data['guid']
+    self.blog_guid = blog_data['blogGuid']
+    self.post_content = blog_data['body']
+    self.time_created = blog_data['createTimestamp']
+    self.is_draft = blog_data['draft']
+    self.last_updated = blog_data['lastUpdateTimestamp']
+    self.json_url = blog_data['jsonUrl']
+    self.meta_description = blog_data['metaDescription']
+    self.meta_keywords = blog_data['metaKeywords']
+    self.portal_id = blog_data['portalId']
+    self.analytics = blog_data['postAnalytics']
+    self.tags = blog_data['tags']
+    self.post_title = blog_data['title']
+    self.post_summary = blog_data['summary']
+    self.url = blog_data['url']
+  
+
+class BlogPostCreate():
+  # Class for dealing with the XML that is returned by the Blog API for creating blog posts.
   def __init__(self, blog_post_json):
     self.parse_xml(blog_post_json)
   
   def parse_xml(self, xml):
     # Creating Nodes
     feedNode = xml.firstChild  # Feed node that wraps the whole XML.
-    idNode = feedNode.firstChild  # id field
+    idNode = feedNode.childNodes[0]  # id field
     blogTitleNode = feedNode.childNodes[1]  # Blog title field
     entryNode = feedNode.childNodes[2]
     postIdNode = entryNode.firstChild
@@ -99,14 +98,12 @@ class BlogPost():
     self.published_time = publishedNode.childNodes[0].data
     self.portal_id = portalIdNode.childNodes[0].data
     if metaDescNode.firstChild:
-      meta_desc = metaDescNode.childNodes[0].data
-      self.set_meta_desc(meta_desc)
+      self.meta_desc = metaDescNode.childNodes[0].data
     else:
       pass
       
     if metaKeywordNode.firstChild:
-      meta_keyword = metaKeywordNode.childNodes[0].data
-      self.set_meta_keyword(meta_keyword)
+      self.meta_keyword = metaKeywordNode.childNodes[0].data
     else:
       pass
       
@@ -117,3 +114,44 @@ class BlogPost():
     self.post_links = postLinksNode.childNodes[0].data
   
 
+class BlogCommentCreate():
+  # Handles the returned XML when a blog comment is created.
+
+  def __init__(self, comment_xml):
+    self.xml_parse(comment_xml)
+  
+  def xml_parse(self, xml):
+    # Creating Nodes
+    feedNode = xml.firstChild  # Feed node that wraps the whole XML.
+    commentEntryNode = feedNode.childNodes[3]
+    commentIdNode = commentEntryNode.childNodes[0]
+    commentAuthorNode = commentEntryNode.childNodes[1]
+    authorNameNode = commentAuthorNode.childNodes[0]
+    authorEmailNode = commentAuthorNode.childNodes[1]
+    authorUriNode = commentAuthorNode.childNodes[2]
+    contentNode = commentEntryNode.childNodes[2]
+    publishedNode = commentEntryNode.childNodes[3]
+    userTokenNode = commentEntryNode.childNodes[6]
+    judgeScoredNode = commentEntryNode.childNodes[7]
+    if userTokenNode.firstChild:
+      user_token = userTokenNode.childNodes[0].data
+      self.set_user_token(user_token)
+    else:
+      pass
+    
+    if judgeScoredNode.firstChild:
+      self.judge_scored_time = judgeScoredNode.childNodes[0].data
+    else:
+      pass
+    
+    isSpamNode = commentEntryNode.childNodes[8]
+    
+    # Drilling down to text and setting class variables
+    self.comment_guid = commentIdNode.childNodes[0].data
+    self.comment_author_name = authorNameNode.childNodes[0].data
+    self.comment_author_email = authorEmailNode.childNodes[0].data
+    self.comment_author_uri = authorUriNode.childNodes[0].data
+    self.comment_content = contentNode.childNodes[0].data
+    self.published_time = publishedNode.childNodes[0].data
+    self.is_comment_spam = isSpamNode.childNodes[0].data
+  

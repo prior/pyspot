@@ -49,14 +49,14 @@ except (ImportError, AttributeError):
         simplejson.loads
       except:
         pass
+try:
+  from hubspot.settings import settings as hs_settings
+  HUBSPOT_API_BASE = hs_settings.HUBSPOT_API_BASE
+except:
+  HUBSPOT_API_BASE = "hubapi.com"
 
-from hubspot.settings import settings as hs_settings
-
-#HUBSPOT_API_BASE = hs_settings.HUBSPOT_API_BASE
-HUBSPOT_API_BASE = "hubapi.com"
 HUBSPOT_BLOG_API_VERSION = '1'
 HUBSPOT_LEADS_API_VERSION = '1'
-HUBSPOT_KEYWORDS_API_VERSION = '1'
 
 
 class HubSpotClient(object):
@@ -89,25 +89,22 @@ class HubSpotClient(object):
       return "atom+xml"
     return "json"
   
-  def _make_request(self, method, params, data=None, request_method='GET', url=None, content_type='application/json'):
-    """only for API's that only return JSON (leads, lead nurturing, settings, events)"""
-    
+  def _make_request(self, method, params, content_type, data=None, request_method='GET', url=None):
     params['hapikey'] = self.api_key
     
     if self.portal_id:
       params['portalId'] = self.portal_id
     
-    if not url: url = '/%s?%s' %(
-      self._create_path(method),
-      urllib.urlencode(params)
-    )
+    if not url: url = '/%s?%s' % (self._create_path(method), urllib.urlencode(params))
     
     client = httplib.HTTPSConnection(HUBSPOT_API_BASE)
     if data and not isinstance(data, str):
       data = urllib.urlencode(data)
     
     headers = {'Content-Type': content_type}
+    
     client.request(request_method, url, data, headers)
+    
     result = client.getresponse()
     if result.status < 400:
       body = result.read()
@@ -267,52 +264,69 @@ class HubSpotBlogClient(HubSpotClient):
     }
     return messages[code]
   
-  def get_blogs(self, output_type):
-    out_type = self._deal_with_content_type(output_type)
-    blogs_returned = self._make_request('list.%s' % output_type, {}, 'application/%s' % out_type)
+  def get_blogs(self):
+    hs_response = self._make_request('list.json', {}, 'application/json')
     blog_objs = []
-    for blog_json in blogs_returned['body']:
+    for blog_json in hs_response['body']:
       individual_blog_obj = Blog(blog_json)
       blog_objs.append(individual_blog_obj)
     return blog_objs
   
-  def get_blog(self, blog_guid, output_type):
-    out_type = self._deal_with_content_type(output_type)
-    return self._make_request_blog(blog_guid, {}, 'application/%s' % out_type)
+  def get_blog_info(self, blog_guid):
+    hs_response = self._make_request(blog_guid, {}, 'application/json')
+    individual_blog_obj = Blog(hs_response['body'])
+    return individual_blog_obj
   
-  def get_posts(self, blog_guid, output_type):
-    """Need to add error checking on the content type.  If its not atom or json for instance"""
-    out_type = self._deal_with_content_type(output_type)
-    return self._make_request_blog('%s/posts.%s' % (blog_guid, output_type), {}, 'application/%s' % out_type)
+  def get_posts(self, blog_guid):
+    hs_response = self._make_request('%s/posts.json' % blog_guid, {}, 'application/json')
+    blog_post_objs = []
+    for blog_posts in hs_response['body']:
+      individual_blog_obj = BlogPosts(blog_posts)
+      blog_post_objs.append(individual_blog_obj)
+    return blog_post_objs
   
-  def get_drafts(self, blog_guid, output_type):
-    out_type = self._deal_with_content_type(output_type)
-    return self._make_request_blog('%s/posts' % blog_guid, {'draft': 'true'}, 'application/%s' % out_type)
+  def get_drafts(self, blog_guid):
+    hs_response = self._make_request('%s/posts' % blog_guid, {'draft': 'true'}, 'application/json')
+    blog_post_objs = []
+    for blog_posts in hs_response['body']:
+      individual_blog_obj = BlogPosts(blog_posts)
+      blog_post_objs.append(individual_blog_obj)
+    return blog_post_objs
   
-  def get_published_posts(self, blog_guid):
-    return self._make_request(
-      '%s/posts' % blog_guid, {'draft': 'false'}
-    )
+  '''def get_published_posts(self, blog_guid):
+    hs_response = self._make_request('%s/posts' % blog_guid, {'draft': 'false'}, 'application/atom+xml')
+    blog_post_objs = []
+    parsed_xml = minidom.parseString(hs_response['body'])
+    for blog_posts in parsed_xml.getElementsByTagName("entry"):
+      individual_blog_obj = BlogPosts(blog_posts)
+      blog_post_objs.append(individual_blog_obj)
+    return blog_post_objs'''
     
   def get_blog_comments(self, blog_guid):
-    return self._make_request(
-      '%s/comments' % blog_guid, {}
-    )
-    
+    hs_response = self._make_request('%s/comments.json' % blog_guid, {}, 'application/json')
+    blog_comment_objs = []
+    for blog_comments in hs_response['body']:
+      individual_comment_obj = BlogComment(blog_comments)
+      blog_comment_objs.append(individual_comment_obj)
+    return blog_comment_objs
+  
   def get_post(self, post_guid):
-    return self._make_request(
-      'posts/%s' % post_guid, {}
-    )
+    hs_response = self._make_request('posts/%s.json' % post_guid, {}, 'application/json')
+    individual_post_obj = BlogPosts(hs_response['body'])
+    return individual_post_obj
     
   def get_post_comments(self, post_guid):
-    return self._make_request(
-      'posts/%s/comments' % post_guid, {}
-    )
-  
+    hs_response = self._make_request('posts/%s/comments.json' % post_guid, {}, 'application/json')
+    blog_comment_objs = []
+    for blog_comments in hs_response['body']:
+      individual_comment_obj = BlogComment(blog_comments)
+      blog_comment_objs.append(individual_comment_obj)
+    return blog_comment_objs
+      
   def get_comment(self, comment_guid):
-    return self._make_request(
-      'comments/%s' % comment_guid, {}
-    )
+    hs_response = self._make_request('comments/%s.json' % comment_guid, {}, 'application/json')
+    individual_comment_obj = BlogComment(hs_response['body'])
+    return individual_comment_obj
     
   def create_post(self, blog_guid, author_name, author_email, title, summary, content, tags):
     tag_xml = ''
@@ -331,7 +345,7 @@ class HubSpotBlogClient(HubSpotClient):
               </entry>''' % (title, author_name, author_email, summary, content, tag_xml)
     hs_response = self._make_request('%s/posts.atom' % blog_guid, {}, content_type='application/atom+xml', data=post, request_method='POST')
     parsed_xml = minidom.parseString(hs_response['body'])
-    inv_blog_post_obj = BlogPost(parsed_xml)
+    inv_blog_post_obj = BlogPostCreate(parsed_xml)
     return inv_blog_post_obj
   
   def update_post(self, post_guid, title, summary, content, meta_desc, meta_keyword, tags):
@@ -349,7 +363,7 @@ class HubSpotBlogClient(HubSpotClient):
               </entry>''' % (title, summary, content, tag_xml, meta_desc, meta_keyword)
     hs_response = self._make_request('posts/%s.atom' % post_guid, {}, content_type='application/atom+xml', data=post, request_method='PUT')
     parsed_xml = minidom.parseString(hs_response['body'])
-    inv_blog_post_obj = BlogPost(parsed_xml)
+    inv_blog_post_obj = BlogPostCreate(parsed_xml)
     return inv_blog_post_obj
   
   def publish_post(self, post_guid, publish_time, is_draft, should_notify):
@@ -361,7 +375,7 @@ class HubSpotBlogClient(HubSpotClient):
               </entry>''' % (publish_time, is_draft, should_notify)
     hs_response = self._make_request('posts/%s.atom' % post_guid, {}, content_type = 'application/atom+xml', data=post, request_method='PUT')
     parsed_xml = minidom.parseString(hs_response['body'])
-    inv_blog_post_obj = BlogPost(parsed_xml)
+    inv_blog_post_obj = BlogPostCreate(parsed_xml)
     return inv_blog_post_obj
     
   def create_comment(self, post_guid, author_name, author_email, author_uri, content):
@@ -377,7 +391,7 @@ class HubSpotBlogClient(HubSpotClient):
     hs_response = self._make_request('posts/%s/comments.atom' % post_guid, {}, content_type='application/atom+xml', data=post, request_method='POST')
     #print hs_response['body']
     parsed_xml = minidom.parseString(hs_response['body'])
-    inv_blog_post_obj = BlogComment(parsed_xml)
+    inv_blog_post_obj = BlogCommentCreate(parsed_xml)
     return inv_blog_post_obj
   
 
